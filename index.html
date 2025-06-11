@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Anagram Builder</title>
+  <style>
+    body {
+      padding: 2em;
+    }
+    body * {
+      font-family: 'Courier New', Courier, monospace;
+    }
+    h1 {
+      margin-bottom: 0.5em;
+    }
+    input {
+      padding: 0.5em;
+      font-size: 1.1em;
+      width: 100%;
+      max-width: 400px;
+      margin-bottom: 1em;
+    }
+    .letter-box {
+      display: inline-block;
+      width: 30px;
+      height: 40px;
+      line-height: 40px;
+      text-align: center;
+      margin: 2px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-weight: bold;
+      font-size: 1.2em;
+      background: white;
+      color: black;
+    }
+    .used {
+      background: #ccc;
+      color: #888;
+    }
+    #remaining-letters {
+      margin-top: 1em;
+    }
+  </style>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-EVSTQN3/azprG1Anm3QDgpJLIm9Nao0Yz1ztcQTwFspd3yD65VohhpuuCOmLASjC" crossorigin="anonymous">
+</head>
+<body>
+  <div class="container">
+    <h1>Anagram Builder</h1>
+
+    <div class="row">
+      <div class="col">
+        <label for="input-word">Enter a word or phrase:</label><br>
+        <input type="text" id="input-word" placeholder="e.g., example"><br>
+        <br />
+        <label for="anagram-guess">Enter a partial anagram:</label><br>
+        <input type="text" id="anagram-guess" placeholder="e.g., lamp" disabled><br>
+        <br />
+        <div id="remaining-letters"></div>
+        <br />
+        <div>
+          <button id="resetbtn" class="btn-success" style="display: none">Reset</button>
+        </div>
+      </div>
+      
+      <div class="col">
+        <div id="guesses">
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const guesses = [];
+    let original;
+    let displayLetters;
+
+    const inputWordEl = document.getElementById('input-word');
+    const anagramGuessEl = document.getElementById('anagram-guess');
+    const remainingLettersEl = document.getElementById('remaining-letters');
+    const resetBtn = document.getElementById('resetbtn');
+
+    function updateRemainingLetters() {
+      if (!original) {
+        return;
+      }
+
+      const guess = anagramGuessEl.value.replace(/\s+/g, '').toLowerCase();
+      
+      const originalLetters = original.split('');
+      const usedFlags = new Array(originalLetters.length).fill(false);
+
+      displayLetters = originalLetters.map((letter, index) => {
+        return { letter, used: false, index };
+      });
+
+      // Mark used letters based on the guess
+      for (const g of guess) {
+        let found = false;
+        for (let i = 0; i < displayLetters.length; i++) {
+          if (!displayLetters[i].used && displayLetters[i].letter === g) {
+            displayLetters[i].used = true;
+            found = true;
+            break;
+          }
+        }
+        if (!found) {
+          // TODO bad UX - can we just delete the last keystroke?
+          resetGuess();
+          break;
+        }
+      }
+
+      renderLetters();
+    }
+
+    // Render the boxes
+    function renderLetters() {
+      remainingLettersEl.innerHTML = '';
+      displayLetters.forEach(l => {
+        const box = document.createElement('div');
+        box.className = 'letter-box' + (l.used ? ' used' : '');
+        box.textContent = l.letter;
+        remainingLettersEl.appendChild(box);
+      });
+    }
+
+    function resetOriginal() {
+      window.location.reload();
+    }
+
+    function resetGuess() {
+      anagramGuessEl.value = "";
+      displayLetters.forEach(l => {
+        l.used = false;
+      });
+      renderLetters(displayLetters);
+    }
+
+    function submitOriginal() {
+      if (inputWordEl.value) {
+        inputWordEl.disabled = true;
+        anagramGuessEl.disabled = false;
+
+        original = inputWordEl.value.replace(/\s+/g, '').toLowerCase();
+        updateRemainingLetters();
+        resetBtn.style.display = "block";
+      }
+    }
+
+    function submitGuess() {
+      if (anagramGuessEl.value) {
+        const currentGuess = anagramGuessEl.value;
+
+        try {
+          validateGuess(currentGuess);
+
+          guesses.push(currentGuess);
+          guesses.sort((a, b) => b.replace(/\s/g, "").length - a.replace(/\s/g, "").length);
+          if (guesses.length == 6) {
+            guesses.splice(-1);
+          }
+          renderGuesses();
+        } catch (err) {
+          alert("Your guess wasn't valid, try again.");
+        }
+        resetGuess();
+      }
+    }
+
+    function validateGuess(currentGuess) {
+      const words = currentGuess.split(/\s/);
+      words.forEach(word => {
+        if (wordList.indexOf(word) == -1) {
+          throw new Error("Invalid word");
+        }
+      });
+    }
+
+    function renderGuesses() {
+      const guessDiv = document.getElementById('guesses');
+      guessList = '<ol>';
+      guesses.forEach(g => {
+        guessLength = g.replace(/\s/g, "").length;
+        let color;
+        if (guessLength >= (original.length / 3) * 2) {
+          color = "green";
+        } else if (guessLength >= (original.length / 3)) {
+          color = "orange";
+        } else {
+          color = "red";
+        }
+        guessList += `<li>${g} <span style="color: ${color}">${guessLength}</span></li>`;
+      });
+      guessList += '</ol>';
+      guessDiv.innerHTML = guessList;
+    }
+
+    // Original
+    inputWordEl.addEventListener('input', updateRemainingLetters);
+    inputWordEl.addEventListener('keyup', (event) => {
+      if (event.key === 'Enter') {
+        submitOriginal();
+      }
+    });
+    // Guess
+    anagramGuessEl.addEventListener('input', updateRemainingLetters);
+    anagramGuessEl.addEventListener('keyup', (event) => {
+      if (event.key === 'Enter') {
+        submitGuess();
+      }
+    });
+    // Button
+    resetBtn.addEventListener('click', resetOriginal);
+
+    // Load word list for validation.
+    const wordList = [];
+    fetch('https://raw.githubusercontent.com/dwyl/english-words/refs/heads/master/words_alpha.txt')
+      .then(r => r.text())
+      .then(data => data.split(/\s/).forEach(l => {
+        if (l) wordList.push(l);
+      }));
+  </script>
+</body>
+</html>
